@@ -3,34 +3,49 @@ package main
 import (
 	"fmt"
 	"os/exec"
-	"runtime"
 	"strings"
-	"time"
 	"unsafe"
+
+	"day0/topics"
 )
 
 // =============================================================================
 // COMPREHENSIVE GO OPTIMIZATION DEMO
 // =============================================================================
-// This program demonstrates 6 key Go optimization topics:
+// This program demonstrates 11 key Go optimization topics:
+// (From goperf.dev/01-common-patterns/)
+//
+// ORIGINAL 6 TOPICS:
 // 1. Struct Alignment - How field ordering affects memory usage and cache efficiency
 // 2. Pass by Value vs Pointer - Copy cost vs indirection overhead
 // 3. Receiver Types - Value vs pointer receivers for methods
 // 4. Return Value Optimization (RVO) - How Go optimizes return-by-value
 // 5. Slice Escape Analysis - When slices escape to heap vs stay on stack
 // 6. Stack vs Heap - Where Go allocates data and performance implications
+// 7. Object Pooling - Reusing objects to reduce GC pressure
+// 8. Batching Operations - Reducing overhead by grouping operations
+// 9. Immutable Data Sharing - Safe concurrent access without locks
+// 10. Lazy Initialization - Deferring expensive operations until needed
+// 11. Memory Preallocation - Preallocating slices and maps for performance
 // =============================================================================
 
 func main() {
 	printHeader("GO PERFORMANCE OPTIMIZATION DEMONSTRATION")
 	fmt.Println()
-	fmt.Println("This demo covers 6 key optimization topics in Go:")
+	fmt.Println("This demo covers 11 key optimization topics in Go:")
+	fmt.Println()
+	fmt.Println("ORIGINAL TOPICS:")
 	fmt.Println("  1. Struct Alignment & Memory Padding")
 	fmt.Println("  2. Pass by Value vs Pointer")
 	fmt.Println("  3. Receiver Types (Value vs Pointer)")
 	fmt.Println("  4. Return Value Optimization (RVO)")
 	fmt.Println("  5. Slice Escape Analysis")
 	fmt.Println("  6. Stack vs Heap Allocation")
+	fmt.Println("  7. Object Pooling")
+	fmt.Println("  8. Batching Operations")
+	fmt.Println("  9. Immutable Data Sharing")
+	fmt.Println(" 10. Lazy Initialization")
+	fmt.Println(" 11. Memory Preallocation")
 	fmt.Println()
 
 	// Run all demos
@@ -88,6 +103,21 @@ func runAllDemos() {
 	// Demo 6: Stack vs Heap
 	demoStackVsHeap()
 
+	// Demo 7: Object Pooling
+	demoObjectPooling()
+
+	// Demo 8: Batching Operations
+	demoBatchingOperations()
+
+	// Demo 9: Immutable Data Sharing
+	demoImmutableDataSharing()
+
+	// Demo 10: Lazy Initialization
+	demoLazyInitialization()
+
+	// Demo 11: Memory Preallocation
+	demoMemoryPreallocation()
+
 	printHeader("DEMONSTRATION COMPLETE")
 	fmt.Println()
 	fmt.Println("Key Takeaways:")
@@ -97,6 +127,11 @@ func runAllDemos() {
 	fmt.Println("  4. Return by value when possible - let RVO handle optimization")
 	fmt.Println("  5. Keep data local to avoid heap escape and GC pressure")
 	fmt.Println("  6. Stack allocation is faster but data must not outlive function")
+	fmt.Println("  7. Object pooling reduces GC pressure for high-frequency allocations")
+	fmt.Println("  8. Batching reduces overhead for I/O-bound operations")
+	fmt.Println("  9. Immutable data enables safe concurrent access without locks")
+	fmt.Println(" 10. Lazy initialization defers expensive operations until needed")
+	fmt.Println(" 11. Preallocate slices and maps when size is known")
 }
 
 // =============================================================================
@@ -104,83 +139,7 @@ func runAllDemos() {
 // =============================================================================
 
 func demoStructAlignment() {
-	printHeader("DEMO 1: STRUCT ALIGNMENT & MEMORY PADDING")
-
-	fmt.Println()
-	fmt.Println("WHAT IS STRUCT ALIGNMENT?")
-	fmt.Println("-------------------------")
-	fmt.Println("Go aligns fields to their natural boundaries for CPU efficiency.")
-	fmt.Println("When fields are ordered poorly, Go adds PADDING bytes between fields.")
-	fmt.Println("This can waste 50%+ of memory!")
-	fmt.Println()
-
-	// Show struct sizes
-	printSubsection("Struct Memory Footprint")
-	sizes := GetStructSizes()
-	fmt.Println("+-------------------+--------+------------------+------------+")
-	fmt.Println("| Struct Name       |  Size  | Theoretical Data  |  Padding   |")
-	fmt.Println("+-------------------+--------+------------------+------------+")
-
-	for name, size := range sizes {
-		var theoretical, padding int
-		switch name {
-		case "UnalignedStruct", "PoorlyPaddedStruct":
-			theoretical = 24
-			padding = size - theoretical
-		case "AlignedStruct":
-			theoretical = 24
-			padding = size - theoretical
-		case "MixedTypesAligned":
-			theoretical = 38
-			padding = size - theoretical
-		case "MixedTypesUnaligned":
-			theoretical = 38
-			padding = size - theoretical
-		}
-		paddingPct := float64(padding) / float64(size) * 100
-		fmt.Printf("| %-17s | %6d | %16d | %6d (%d%%) |\n", name, size, theoretical, padding, int(paddingPct))
-	}
-	fmt.Println("+-------------------+--------+------------------+------------+")
-
-	// Calculate savings
-	printSubsection("Memory Savings with Proper Alignment")
-	unalignedSize := sizes["UnalignedStruct"]
-	alignedSize := sizes["AlignedStruct"]
-	savings := unalignedSize - alignedSize
-	savingsPercent := float64(savings) / float64(unalignedSize) * 100
-
-	fmt.Printf("Unaligned: %d bytes\n", unalignedSize)
-	fmt.Printf("Aligned:   %d bytes\n", alignedSize)
-	fmt.Printf("Savings:   %d bytes (%.1f%% reduction)\n", savings, savingsPercent)
-	fmt.Printf("\nWith 1 million elements:\n")
-	fmt.Printf("  Unaligned: %s\n", formatBytes(int64(unalignedSize*1000000)))
-	fmt.Printf("  Aligned:   %s\n", formatBytes(int64(alignedSize*1000000)))
-	fmt.Printf("  Saved:     %s\n", formatBytes(int64(savings*1000000)))
-
-	// Cache effects
-	printSubsection("Cache Line Efficiency")
-	cacheLine := 64
-	elemsPerLineUnaligned := cacheLine / unalignedSize
-	elemsPerLineAligned := cacheLine / alignedSize
-
-	fmt.Printf("Cache line size: %d bytes\n", cacheLine)
-	fmt.Printf("Unaligned: %d elements per cache line\n", elemsPerLineUnaligned)
-	fmt.Printf("Aligned:   %d elements per cache line\n", elemsPerLineAligned)
-	fmt.Printf("Efficiency improvement: %.1fx\n", float64(elemsPerLineAligned)/float64(elemsPerLineUnaligned))
-
-	// Run benchmarks
-	printSubsection("Performance Benchmarks")
-	runBenchmarks("Alignment")
-
-	// Best practices
-	printSubsection("Best Practices")
-	fmt.Println("✓ Order struct fields by size: largest first, smallest last")
-	fmt.Println("  - int64, float64, pointers (8 bytes)")
-	fmt.Println("  - int32, float32 (4 bytes)")
-	fmt.Println("  - int16 (2 bytes)")
-	fmt.Println("  - int8, bool (1 byte)")
-	fmt.Println("✓ Use unsafe.Sizeof() to check struct sizes")
-	fmt.Println("✓ Consider 'go vet -structtag' for tagged field ordering")
+	topics.RunAlignmentDemo()
 }
 
 // =============================================================================
@@ -203,7 +162,7 @@ func demoPassByValue() {
 	fmt.Println()
 
 	// Show LargeStruct size
-	structSize := int(unsafe.Sizeof(LargeStruct{}))
+	structSize := int(unsafe.Sizeof(topics.LargeStruct{}))
 	printSubsection("LargeStruct Size")
 	fmt.Printf("LargeStruct: %d bytes (%s)\n", structSize, formatBytes(int64(structSize)))
 	fmt.Println("This is large enough to show significant copy overhead!")
@@ -246,8 +205,8 @@ func demoReceiverTypes() {
 
 	// Show sizes
 	printSubsection("Receiver Type Impact")
-	counterSize := int(unsafe.Sizeof(Counter{}))
-	processorSize := int(unsafe.Sizeof(DataProcessor{}))
+	counterSize := int(unsafe.Sizeof(topics.Counter{}))
+	processorSize := int(unsafe.Sizeof(topics.DataProcessor{}))
 	fmt.Printf("Counter: %d bytes (copy cost negligible)\n", counterSize)
 	fmt.Printf("DataProcessor: %d bytes (copy cost significant!)\n", processorSize)
 
@@ -277,34 +236,7 @@ func demoReceiverTypes() {
 // =============================================================================
 
 func demoReturnOptimization() {
-	printHeader("DEMO 4: RETURN VALUE OPTIMIZATION (RVO)")
-
-	fmt.Println()
-	fmt.Println("WHAT IS RVO?")
-	fmt.Println("Return Value Optimization allows Go to:")
-	fmt.Println("  1. Allocate return space in the CALLER (not in the function)")
-	fmt.Println("  2. Build the return value directly where it's needed")
-	fmt.Println("  3. Zero copies - zero allocations!")
-	fmt.Println()
-	fmt.Println("RETURN BY VALUE (with RVO):")
-	fmt.Println("  ✓ No heap allocation")
-	fmt.Println("  ✓ No copy overhead")
-	fmt.Println("  ✓ Clean code, great performance")
-	fmt.Println()
-	fmt.Println("RETURN POINTER (heap escape):")
-	fmt.Println("  ✗ Heap allocation required")
-	fmt.Println("  ✗ Garbage collector pressure")
-	fmt.Println("  ✗ Potential cache misses")
-
-	// Run benchmarks
-	printSubsection("Performance Benchmarks")
-	runBenchmarks("Return")
-
-	// Key takeaway
-	printSubsection("Key Takeaway")
-	fmt.Println("✓ Let the compiler help you - return by value when possible!")
-	fmt.Println("✓ RVO is one of Go's best optimizations")
-	fmt.Println("✓ Avoid returning pointers to local variables unless necessary")
+	topics.RunReturnOptimizationDemo()
 }
 
 // =============================================================================
@@ -312,57 +244,7 @@ func demoReturnOptimization() {
 // =============================================================================
 
 func demoSliceEscape() {
-	printHeader("DEMO 5: SLICE ESCAPE ANALYSIS")
-
-	fmt.Println()
-	fmt.Println("WHAT IS ESCAPE ANALYSIS?")
-	fmt.Println("Go determines at compile time whether data can stay on the stack")
-	fmt.Println("or must be moved to the heap (where it 'escapes' the function).")
-	fmt.Println()
-	fmt.Println("STAY ON STACK (no escape):")
-	fmt.Println("  ✓ Fast allocation (just move stack pointer)")
-	fmt.Println("  ✓ No GC pressure")
-	fmt.Println("  ✓ Automatic cleanup")
-	fmt.Println()
-	fmt.Println("ESCAPE TO HEAP:")
-	fmt.Println("  ✗ Requires allocation")
-	fmt.Println("  ✗ GC must track and collect")
-	fmt.Println("  ✗ Slower than stack")
-
-	// Demonstrate escape with timing
-	printSubsection("Escape Demonstration (Timing Test)")
-
-	// Run timing test to show difference
-	for _, size := range []int{100, 1000, 10000} {
-		start := time.Now()
-		var escapeSum, noEscapeSum int
-
-		// Warm up
-		for i := range 1000 {
-			if i%2 == 0 {
-				escapeSum += processSliceWithEscape(size)
-			} else {
-				noEscapeSum += processSliceNoEscape(size)
-			}
-		}
-		elapsed := time.Since(start)
-
-		_ = escapeSum
-		_ = noEscapeSum
-
-		fmt.Printf("Slice size %5d: %v for 1000 iterations\n", size, elapsed)
-	}
-
-	// Run benchmarks
-	printSubsection("Performance Benchmarks")
-	runBenchmarks("SliceEscape")
-
-	// Guidelines
-	printSubsection("Guidelines")
-	fmt.Println("✓ Keep data local to avoid escape")
-	fmt.Println("✓ Avoid assigning to global variables")
-	fmt.Println("✓ Don't return slices unnecessarily")
-	fmt.Println("✓ Use //go:noinline to prevent optimization if testing")
+	topics.RunSliceEscapeDemo()
 }
 
 // =============================================================================
@@ -370,41 +252,47 @@ func demoSliceEscape() {
 // =============================================================================
 
 func demoStackVsHeap() {
-	printHeader("DEMO 6: STACK VS HEAP ALLOCATION")
+	topics.RunStackVsHeapDemo()
+}
 
-	fmt.Println()
-	fmt.Println("THE STACK:")
-	fmt.Println("  - Fast allocation (just move a pointer)")
-	fmt.Println("  - Automatic cleanup (no GC needed)")
-	fmt.Println("  - Limited size (~MB)")
-	fmt.Println("  - Great for short-lived data")
-	fmt.Println()
-	fmt.Println("THE HEAP:")
-	fmt.Println("  - Slower allocation (requires finding free space)")
-	fmt.Println("  - Requires garbage collection")
-	fmt.Println("  - Much larger (~GB)")
-	fmt.Println("  - For data that outlives its function")
+// =============================================================================
+// DEMO 7: OBJECT POOLING
+// =============================================================================
 
-	// Get current runtime info
-	printSubsection("Runtime Information")
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-	fmt.Printf("Go version: %s\n", runtime.Version())
-	fmt.Printf("NumCPU: %d\n", runtime.NumCPU())
-	fmt.Printf("GOMAXPROCS: %d\n", runtime.GOMAXPROCS(0))
-	fmt.Printf("GC cycles: %d\n", m.NumGC)
+func demoObjectPooling() {
+	topics.RunPoolingDemo()
+}
 
-	// Run benchmarks
-	printSubsection("Performance Benchmarks")
-	runBenchmarks("StackHeap")
+// =============================================================================
+// DEMO 8: BATCHING OPERATIONS
+// =============================================================================
 
-	// Key insights
-	printSubsection("Key Insights")
-	fmt.Println("✓ Stack allocation is ~10-100x faster than heap")
-	fmt.Println("✓ Small allocations may not trigger GC at all")
-	fmt.Println("✓ Escape analysis happens at compile time")
-	fmt.Println("✓ Large objects (> 64KB) go directly to heap")
-	fmt.Println("✓ Use pprof to identify heap allocations: go tool pprof")
+func demoBatchingOperations() {
+	topics.RunBatchingDemo()
+}
+
+// =============================================================================
+// DEMO 9: IMMUTABLE DATA SHARING
+// =============================================================================
+
+func demoImmutableDataSharing() {
+	topics.RunImmutableDemo()
+}
+
+// =============================================================================
+// DEMO 10: LAZY INITIALIZATION
+// =============================================================================
+
+func demoLazyInitialization() {
+	topics.RunLazyInitDemo()
+}
+
+// =============================================================================
+// DEMO 11: MEMORY PREALLOCATION
+// =============================================================================
+
+func demoMemoryPreallocation() {
+	topics.RunMemoryPreallocationDemo()
 }
 
 // =============================================================================
@@ -480,14 +368,14 @@ func getBenchmarksForCategory(category string) []string {
 }
 
 func runGoTestBenchmark(benchmarkName string) string {
-	// Run the benchmark using go test
-	cmd := exec.Command("go", "test", "-bench="+benchmarkName, "-benchmem", "-run=^$", "-count=1", ".")
+	// Run the benchmark using go test from the benchmarks directory
+	cmd := exec.Command("go", "test", "-bench="+benchmarkName, "-benchmem", "-run=^$", "-count=1", "./benchmarks")
 	cmd.Dir = "."
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// Try running with different approach
-		cmd := exec.Command("go", "test", "-bench="+benchmarkName, "-benchmem", "-run=^$", ".")
+		cmd := exec.Command("go", "test", "-bench="+benchmarkName, "-benchmem", "-run=^$", "./benchmarks")
 		output, err = cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Sprintf("%-45s | Error: %v", benchmarkName, err)

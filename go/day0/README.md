@@ -1,17 +1,22 @@
 # Go Performance Optimization Demo
 
-A comprehensive demonstration of Go performance optimization techniques including struct alignment, memory management, and efficient data handling patterns.
+A comprehensive demonstration of Go performance optimization techniques based on [goperf.dev](https://goperf.dev/01-common-patterns/) including struct alignment, memory management, and efficient data handling patterns.
 
 ## 📋 Overview
 
-This project demonstrates 6 key Go optimization topics through interactive demonstrations and benchmarks:
+This project demonstrates **10 key Go optimization topics** from goperf.dev through interactive demonstrations and benchmarks:
 
+### Original Topics
 1. **Struct Alignment & Memory Padding** - How field ordering affects memory usage and cache efficiency
 2. **Pass by Value vs Pointer** - Copy cost vs indirection overhead trade-offs
 3. **Receiver Types (Value vs Pointer)** - Method performance implications
 4. **Return Value Optimization (RVO)** - How Go optimizes return-by-value
 5. **Slice Escape Analysis** - When slices escape to heap vs stay on stack
 6. **Stack vs Heap Allocation** - Performance implications of allocation strategies
+7. **Object Pooling** - Reusing objects to reduce GC pressure
+8. **Batching Operations** - Reducing overhead by grouping I/O operations
+9. **Immutable Data Sharing** - Safe concurrent access without locks
+10. **Lazy Initialization** - Deferring expensive operations until needed
 
 ## 🚀 Quick Start
 
@@ -35,16 +40,20 @@ go test -bench=BenchmarkAddByPointer -benchmem
 ## 📁 Project Structure
 
 ```
-├── main.go                 # Interactive demo runner
-├── types.go               # Common type definitions
-├── struct_alignment.go    # Struct alignment demonstrations
-├── pass_by_value.go       # Pass by value vs pointer examples
-├── receiver_types.go     # Value vs pointer receiver methods
-├── return_optimization.go # Return value optimization examples
-├── slice_escape.go        # Slice escape analysis
-├── stack_vs_heap.go       # Stack vs heap allocation
-├── *_test.go             # Benchmark tests for each topic
-└── go.mod                # Go module definition
+├── main.go                     # Interactive demo runner
+├── types.go                    # Common type definitions
+├── struct_alignment.go         # Struct alignment demonstrations
+├── pass_by_value.go            # Pass by value vs pointer examples
+├── receiver_types.go           # Value vs pointer receiver methods
+├── return_optimization.go      # Return value optimization examples
+├── slice_escape.go             # Slice escape analysis
+├── stack_vs_heap.go            # Stack vs heap allocation
+├── object_pooling.go           # Object pooling pattern (NEW)
+├── batching_operations.go      # Batching operations (NEW)
+├── immutable_data.go           # Immutable data sharing (NEW)
+├── lazy_initialization.go      # Lazy initialization (NEW)
+├── *_test.go                   # Benchmark tests for each topic
+└── go.mod                      # Go module definition
 ```
 
 ## 🎯 Key Topics
@@ -134,6 +143,104 @@ type GoodStruct struct {
 - Much larger (~GBs)
 - For data that outlives its function
 
+### 7. Object Pooling
+
+**Problem**: Creating and destroying objects repeatedly causes GC pressure
+
+**Solution**: Reuse objects from a pool instead of allocating new ones
+
+**When to use**:
+- High-frequency allocations in tight loops
+- Objects with expensive initialization
+- Burstable workloads
+
+**Example**:
+```go
+var pool = sync.Pool{
+    New: func() interface{} {
+        return &Buffer{data: make([]byte, 1024)}
+    },
+}
+
+// Use buffer from pool
+buf := pool.Get().(*Buffer)
+// ... use buffer ...
+pool.Put(buf)  // Return to pool for reuse
+```
+
+### 8. Batching Operations
+
+**Problem**: Individual operations have high overhead (syscalls, network round-trips)
+
+**Solution**: Group multiple operations together to reduce per-operation cost
+
+**When to use**:
+- Database writes (batch inserts)
+- Network requests (HTTP batching)
+- File I/O (buffered writes)
+
+**Example**:
+```go
+// Without batching - 1000 individual writes
+for _, entry := range entries {
+    db.Write(entry.Key, entry.Value)
+}
+
+// With batching - 1 batch write
+db.BatchWrite(entries)
+```
+
+### 9. Immutable Data Sharing
+
+**Problem**: Mutable shared data requires locks, causing contention
+
+**Solution**: Use immutable data structures - no locks needed for reading!
+
+**When to use**:
+- Concurrent access without locking
+- Functional programming patterns
+- Event sourcing architectures
+
+**Example**:
+```go
+type ImmutableUser struct {
+    ID   int64
+    Name string
+}
+
+// "Modification" creates new instance
+func (u ImmutableUser) WithName(name string) ImmutableUser {
+    return ImmutableUser{ID: u.ID, Name: name}
+}
+```
+
+### 10. Lazy Initialization
+
+**Problem**: Expensive initialization at startup slows down application
+
+**Solution**: Defer initialization until the value is actually needed
+
+**When to use**:
+- Expensive operations not always needed
+- Reducing startup time
+- Resource conservation
+
+**Example**:
+```go
+type LazyConfig struct {
+    config   ExpensiveConfig
+    loaded   bool
+    once     sync.Once
+}
+
+func (lc *LazyConfig) Get() ExpensiveConfig {
+    lc.once.Do(func() {
+        lc.config = loadConfig()
+    })
+    return lc.config
+}
+```
+
 ## 📊 Benchmarks
 
 ### Running Benchmarks
@@ -197,12 +304,17 @@ go test -bench=BenchmarkAddByPointer -benchmem
 
 ## 💡 Key Takeaways
 
+### Original Topics
 1. **Order struct fields largest to smallest** to minimize padding
 2. **Pass small structs by value, large structs by pointer**
 3. **Use pointer receivers for large types or when mutation is needed**
 4. **Return by value when possible** - let RVO handle optimization
 5. **Keep data local to avoid heap escape** and GC pressure
 6. **Stack allocation is faster** but data must not outlive function
+7. **Object pooling reduces GC pressure** for high-frequency allocations
+8. **Batching reduces overhead** for I/O-bound operations
+9. **Immutable data enables safe concurrent access** without locks
+10. **Lazy initialization defers expensive operations** until needed
 
 ## 🛠️ Development
 

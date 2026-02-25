@@ -1,4 +1,10 @@
-package main
+// Package topics provides Go performance optimization demonstrations.
+package topics
+
+import (
+	"fmt"
+	"unsafe"
+)
 
 // =============================================================================
 // RECEIVER TYPES: VALUE VS POINTER
@@ -102,4 +108,60 @@ func (dp *DataProcessor) ProcessByPointer() int {
 // - Interface methods that need mutation MUST use pointer receivers!
 type Incrementer interface {
 	Increment() int
+}
+
+// GetCounterSize returns the size of Counter for demonstration.
+func GetCounterSize() int {
+	return int(unsafe.Sizeof(Counter{}))
+}
+
+// GetDataProcessorSize returns the size of DataProcessor for demonstration.
+func GetDataProcessorSize() int {
+	return int(unsafe.Sizeof(DataProcessor{}))
+}
+
+// =============================================================================
+// DEMONSTRATION
+// =============================================================================
+
+// RunReceiverTypesDemo demonstrates value vs pointer receiver performance.
+func RunReceiverTypesDemo() {
+	fmt.Println("================================================================================")
+	fmt.Println("                    RECEIVER TYPES DEMONSTRATION                               ")
+	fmt.Println("================================================================================")
+	fmt.Println()
+
+	fmt.Println("VALUE RECEIVER:")
+	fmt.Println("  - Go makes a COPY of the struct")
+	fmt.Println("  - Changes don't affect the original")
+	fmt.Println("  - Good for small, read-only operations")
+	fmt.Println()
+	fmt.Println("POINTER RECEIVER:")
+	fmt.Println("  - Go passes a pointer to the original")
+	fmt.Println("  - Changes persist")
+	fmt.Println("  - No copy overhead - efficient for large types")
+	fmt.Println()
+
+	// Show sizes
+	fmt.Println("=== Receiver Type Impact ===")
+	counterSize := GetCounterSize()
+	processorSize := GetDataProcessorSize()
+	fmt.Printf("Counter: %d bytes (copy cost negligible)\n", counterSize)
+	fmt.Printf("DataProcessor: %d bytes (copy cost significant!)\n", processorSize)
+	fmt.Println()
+
+	// Guidelines
+	fmt.Println("=== Guidelines ===")
+	fmt.Println("Use VALUE RECEIVER when:")
+	fmt.Println("  - Struct is small (< 16 bytes)")
+	fmt.Println("  - You don't need to modify the original")
+	fmt.Println("  - Thread-safety is important (no aliasing)")
+	fmt.Println()
+	fmt.Println("Use POINTER RECEIVER when:")
+	fmt.Println("  - Struct is large (> 100 bytes)")
+	fmt.Println("  - You need to modify the original")
+	fmt.Println("  - Method must satisfy an interface that requires pointers")
+	fmt.Println()
+
+	fmt.Println("================================================================================")
 }
