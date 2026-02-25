@@ -232,9 +232,9 @@ go test -bench=. -benchmem -count=5
 ## 📚 Further Reading
 
 - [Go Memory Model](https://golang.org/ref/mem)
-- [Go Optimizations](https://golang.org/doc/optimize)
-- [Struct Padding](https://golang.org/doc/efficient_go#struct_padding)
-- [Escape Analysis](https://golang.org/doc/efficient_go#escape_analysis)
+- [Go Optimizations](https://goperf.dev/)
+- [Struct Padding](https://kawin.dev/posts/go/struct_memory/)
+- [Escape Analysis](https://goperf.dev/01-common-patterns/stack-alloc/)
 
 ## 🤝 Contributing
 
