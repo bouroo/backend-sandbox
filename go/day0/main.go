@@ -57,16 +57,20 @@ func main() {
 // =============================================================================
 
 func printHeader(title string) {
-	fmt.Println("================================================================================")
-	fmt.Printf("%73s\n", title)
-	fmt.Println("================================================================================")
+	const width = 80
+	padding := (width - len(title)) / 2
+	fmt.Println(strings.Repeat("=", width))
+	fmt.Printf("%s%s\n", strings.Repeat(" ", padding), title)
+	fmt.Println(strings.Repeat("=", width))
 }
 
 func printSection(title string) {
+	const width = 80
+	padding := (width - len(title)) / 2
 	fmt.Println()
-	fmt.Println("--------------------------------------------------------------------------------")
-	fmt.Printf("%73s\n", title)
-	fmt.Println("--------------------------------------------------------------------------------")
+	fmt.Println(strings.Repeat("-", width))
+	fmt.Printf("%s%s\n", strings.Repeat(" ", padding), title)
+	fmt.Println(strings.Repeat("-", width))
 }
 
 func printSubsection(title string) {
@@ -147,7 +151,7 @@ func demoStructAlignment() {
 // =============================================================================
 
 func demoPassByValue() {
-	printHeader("DEMO 2: PASS BY VALUE VS POINTER")
+	printHeader("PASS BY VALUE VS POINTER")
 
 	fmt.Println()
 	fmt.Println("PASS BY VALUE:")
@@ -189,7 +193,7 @@ func demoPassByValue() {
 // =============================================================================
 
 func demoReceiverTypes() {
-	printHeader("DEMO 3: RECEIVER TYPES (VALUE VS POINTER)")
+	printHeader("RECEIVER TYPES (VALUE VS POINTER)")
 
 	fmt.Println()
 	fmt.Println("VALUE RECEIVER:")

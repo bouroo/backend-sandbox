@@ -42,17 +42,20 @@ go test -bench=BenchmarkAddByPointer -benchmem
 ```
 ├── main.go                     # Interactive demo runner
 ├── types.go                    # Common type definitions
-├── struct_alignment.go         # Struct alignment demonstrations
-├── pass_by_value.go            # Pass by value vs pointer examples
-├── receiver_types.go           # Value vs pointer receiver methods
-├── return_optimization.go      # Return value optimization examples
-├── slice_escape.go             # Slice escape analysis
-├── stack_vs_heap.go            # Stack vs heap allocation
-├── object_pooling.go           # Object pooling pattern (NEW)
-├── batching_operations.go      # Batching operations (NEW)
-├── immutable_data.go           # Immutable data sharing (NEW)
-├── lazy_initialization.go      # Lazy initialization (NEW)
-├── *_test.go                   # Benchmark tests for each topic
+├── topics/                     # Topic implementations
+│   ├── struct_alignment.go         # Struct alignment demonstrations
+│   ├── pass_by_value.go            # Pass by value vs pointer examples
+│   ├── receiver_types.go           # Value vs pointer receiver methods
+│   ├── return_optimization.go      # Return value optimization examples
+│   ├── slice_escape.go             # Slice escape analysis
+│   ├── stack_vs_heap.go            # Stack vs heap allocation
+│   ├── object_pooling.go           # Object pooling pattern
+│   ├── batching_operations.go      # Batching operations
+│   ├── immutable_data.go           # Immutable data sharing
+│   ├── lazy_initialization.go      # Lazy initialization
+│   └── memory_preallocation.go     # Memory preallocation
+├── benchmarks/                 # Benchmark tests
+│   └── *_test.go
 └── go.mod                      # Go module definition
 ```
 
@@ -96,7 +99,7 @@ type GoodStruct struct {
 - Pass large structs (> 100 bytes) by pointer
 - Consider mutation needs
 
-###  (Value vs Pointer3. Receiver Types)
+### 3. Receiver Types (Value vs Pointer)
 
 **Value Receivers**:
 - Copy the entire struct
