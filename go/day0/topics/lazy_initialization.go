@@ -23,13 +23,6 @@ import (
 // - Saves memory for unused features
 // - Defers expensive operations until needed
 //
-// BENCHMARK RESULTS:
-// - Lazy Config First Access: ~1,111 ns/op (includes load)
-// - Lazy Config Cached Access: ~5 ns/op (very fast)
-// - Lazy Cache First Access: ~5,689 ns/op (includes load)
-// - Lazy Cache Cache Hit: ~6 ns/op (fast)
-// - Lazy Cache Multiple Keys: ~127 ns/op (10 keys)
-
 // =============================================================================
 // EXAMPLE 1: Simple Lazy Initialization
 // =============================================================================
@@ -166,7 +159,6 @@ func (c *Cache) Get(key string) any {
 	}
 
 	// Load and store
-	fmt.Printf("  [Cache] Loading key: %s\n", key)
 	val := c.loader(key)
 	c.data[key] = val
 	return val
@@ -277,21 +269,104 @@ func RunLazyInitDemo() {
 	demoSyncOnce()
 	demoLazyCache()
 
-	// Benchmark results
+	// Run micro-benchmarks for lazy initialization
+	const benchIterations = 100000
+
+	// Lazy config benchmarks - use faster load function for benchmarking
+	fastLoad := func() ExpensiveConfig {
+		time.Sleep(1 * time.Millisecond) // Simulate faster load
+		return ExpensiveConfig{
+			DatabaseURL: "postgres://localhost:5432/db",
+			APIKey:      "secret-key-12345",
+			Timeout:     30 * time.Second,
+		}
+	}
+
+	// First access benchmark (includes load)
+	lazyConfigBench := NewLazyConfig(fastLoad)
+	// Don't print during benchmark
+	configGet := func() ExpensiveConfig {
+		lazyConfigBench.mu.Lock()
+		defer lazyConfigBench.mu.Unlock()
+		if !lazyConfigBench.loaded {
+			lazyConfigBench.config = fastLoad()
+			lazyConfigBench.loaded = true
+		}
+		return lazyConfigBench.config
+	}
+
+	configGet() // Load once
+	configFirstStart := time.Now()
+	for range benchIterations {
+		_ = configGet()
+	}
+	configFirstTime := time.Since(configFirstStart)
+	configFirstNsOp := float64(configFirstTime.Nanoseconds()) / float64(benchIterations)
+
+	// IsLoaded check benchmark
+	isLoadedStart := time.Now()
+	for range benchIterations {
+		_ = lazyConfigBench.IsLoaded()
+	}
+	isLoadedTime := time.Since(isLoadedStart)
+	isLoadedNsOp := float64(isLoadedTime.Nanoseconds()) / float64(benchIterations)
+
+	// Lazy cache benchmarks
+	cache := NewCache(func(key string) any {
+		time.Sleep(1 * time.Millisecond) // Simulate fast load
+		return fmt.Sprintf("value-%s", key)
+	})
+
+	// First access (cache miss)
+	cache.Get("benchkey") // Load once
+	cacheMissStart := time.Now()
+	for i := range benchIterations {
+		_ = cache.Get(fmt.Sprintf("benchkey-%d", i))
+	}
+	cacheMissTime := time.Since(cacheMissStart)
+	cacheMissNsOp := float64(cacheMissTime.Nanoseconds()) / float64(benchIterations)
+
+	// Cached access (cache hit)
+	cache.Get("hitkey") // Load once
+	cacheHitStart := time.Now()
+	for range benchIterations {
+		_ = cache.Get("hitkey")
+	}
+	cacheHitTime := time.Since(cacheHitStart)
+	cacheHitNsOp := float64(cacheHitTime.Nanoseconds()) / float64(benchIterations)
+
+	// Multiple keys benchmark
+	cacheMulti := NewCache(func(key string) any {
+		time.Sleep(1 * time.Millisecond)
+		return fmt.Sprintf("value-%s", key)
+	})
+	for i := range 10 {
+		cacheMulti.Get(fmt.Sprintf("key%d", i))
+	}
+	multiStart := time.Now()
+	for range 10000 {
+		for i := range 10 {
+			_ = cacheMulti.Get(fmt.Sprintf("key%d", i))
+		}
+	}
+	multiTime := time.Since(multiStart)
+	multiNsOp := float64(multiTime.Nanoseconds()) / 100000
+
+	// Print benchmark results with actual measurements
 	fmt.Println("=== BENCHMARK RESULTS ===")
 	fmt.Println("Lazy Config:")
-	fmt.Println("  - First access: ~1,111 ns/op (includes 1ms simulated load)")
-	fmt.Println("  - Cached access: ~5 ns/op")
-	fmt.Println("  - IsLoaded check: ~4 ns/op")
+	fmt.Printf("  - First access: ~%.0f ns/op\n", configFirstNsOp)
+	fmt.Printf("  - Cached access: ~%.0f ns/op\n", configFirstNsOp)
+	fmt.Printf("  - IsLoaded check: ~%.0f ns/op\n", isLoadedNsOp)
 	fmt.Println()
 	fmt.Println("Lazy Cache:")
-	fmt.Println("  - First access (cache miss): ~5,689 ns/op")
-	fmt.Println("  - Cached access (cache hit): ~6 ns/op")
-	fmt.Println("  - Multiple keys (10): ~127 ns/op")
-	fmt.Println("  - Write-heavy workload: ~1,470 ns/op")
+	fmt.Printf("  - First access (cache miss): ~%.0f ns/op\n", cacheMissNsOp)
+	fmt.Printf("  - Cached access (cache hit): ~%.0f ns/op\n", cacheHitNsOp)
+	fmt.Printf("  - Multiple keys (10): ~%.0f ns/op\n", multiNsOp)
 	fmt.Println()
 	fmt.Println("Key Insight:")
-	fmt.Println("  - Lazy initialization is ~200x faster on cached access")
+	cachedSpeedup := cacheMissNsOp / cacheHitNsOp
+	fmt.Printf("  - Lazy initialization is ~%.0fx faster on cached access\n", cachedSpeedup)
 	fmt.Println("  - Trade-off: first access slower, subsequent access much faster")
 	fmt.Println()
 

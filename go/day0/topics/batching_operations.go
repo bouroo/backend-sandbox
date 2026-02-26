@@ -23,13 +23,6 @@ import (
 // - Improves I/O efficiency
 // - Better utilization of network/disk bandwidth
 //
-// BENCHMARK RESULTS:
-// - Database Individual: ~11,000 ns/op
-// - Database Batch (3 items): ~16,000 ns/op (amortized overhead)
-// - HTTP Single: ~24 ns/op
-// - HTTP Small Batch (10): ~284 ns/op (~28 ns/item)
-// - HTTP Large Batch (100): ~1,725 ns/op (~17 ns/item)
-
 // =============================================================================
 // EXAMPLE 1: Batch Database Writes
 // =============================================================================
@@ -255,17 +248,83 @@ func RunBatchingDemo() {
 	demoDatabaseBatching()
 	demoHTTPBatching()
 
-	// Benchmark results
+	// Run micro-benchmarks for database operations
+	db := &SimulatedDB{}
+	entries := map[string]string{
+		"key1": "value1",
+		"key2": "value2",
+		"key3": "value3",
+	}
+	dbIterations := 1000
+	// Individual writes benchmark
+	dbStart := time.Now()
+	for range dbIterations {
+		for k, v := range entries {
+			db.Write(k, v)
+		}
+	}
+	dbIndividualTime := time.Since(dbStart)
+	dbIndividualNsOp := float64(dbIndividualTime.Nanoseconds()) / float64(dbIterations*len(entries))
+
+	// Reset and test batch writes
+	db.writeCount = 0
+	dbBatchStart := time.Now()
+	for range dbIterations {
+		db.BatchWrite(entries)
+	}
+	dbBatchTime := time.Since(dbBatchStart)
+	dbBatchNsOp := float64(dbBatchTime.Nanoseconds()) / float64(dbIterations)
+
+	// HTTP benchmarks
+	httpIterations := 10000
+	// Single requests benchmark
+	singleClient := NewBatchHTTPClient(1, time.Millisecond)
+	httpSingleStart := time.Now()
+	for i := range httpIterations {
+		_ = i
+		singleClient.Send(HTTPRequest{
+			URL:    "/api/item",
+			Method: "POST",
+		})
+	}
+	httpSingleTime := time.Since(httpSingleStart)
+	httpSingleNsOp := float64(httpSingleTime.Nanoseconds()) / float64(httpIterations)
+
+	// Small batch (10) benchmark
+	smallBatchClient := NewBatchHTTPClient(10, time.Millisecond)
+	httpSmallStart := time.Now()
+	for i := range httpIterations {
+		smallBatchClient.Send(HTTPRequest{
+			URL:    fmt.Sprintf("/api/item/%d", i),
+			Method: "POST",
+		})
+	}
+	httpSmallTime := time.Since(httpSmallStart)
+	httpSmallNsOp := float64(httpSmallTime.Nanoseconds()) / float64(httpIterations)
+
+	// Large batch (100) benchmark
+	largeBatchClient := NewBatchHTTPClient(100, time.Millisecond)
+	httpLargeStart := time.Now()
+	for i := range httpIterations {
+		largeBatchClient.Send(HTTPRequest{
+			URL:    fmt.Sprintf("/api/item/%d", i),
+			Method: "POST",
+		})
+	}
+	httpLargeTime := time.Since(httpLargeStart)
+	httpLargeNsOp := float64(httpLargeTime.Nanoseconds()) / float64(httpIterations)
+
+	// Print benchmark results with actual measurements
 	fmt.Println("=== BENCHMARK RESULTS ===")
 	fmt.Println("Database Write Comparison (3 items):")
-	fmt.Println("  - Individual writes: ~11,000 ns/op")
-	fmt.Println("  - Batch write (3 items): ~16,000 ns/op")
+	fmt.Printf("  - Individual writes: ~%.0f ns/op\n", dbIndividualNsOp)
+	fmt.Printf("  - Batch write (3 items): ~%.0f ns/op\n", dbBatchNsOp)
 	fmt.Println("  -> Batch amortizes overhead across items")
 	fmt.Println()
 	fmt.Println("HTTP Request Comparison:")
-	fmt.Println("  - Single request: ~24 ns/op")
-	fmt.Println("  - Small batch (10): ~284 ns/op (~28 ns/item)")
-	fmt.Println("  - Large batch (100): ~1,725 ns/op (~17 ns/item)")
+	fmt.Printf("  - Single request: ~%.0f ns/op\n", httpSingleNsOp)
+	fmt.Printf("  - Small batch (10): ~%.0f ns/op (~%.0f ns/item)\n", httpSmallNsOp, httpSmallNsOp/10)
+	fmt.Printf("  - Large batch (100): ~%.0f ns/op (~%.0f ns/item)\n", httpLargeNsOp, httpLargeNsOp/100)
 	fmt.Println("  -> Larger batches reduce per-item overhead")
 	fmt.Println()
 

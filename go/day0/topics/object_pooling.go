@@ -23,14 +23,6 @@ import (
 // - Improves performance in high-frequency scenarios
 // - Reuses pre-allocated memory
 //
-// BENCHMARK RESULTS:
-// - Without Pool Small (1KB): ~10 ns/op
-// - With Pool Small (1KB): ~7 ns/op (1.4x faster)
-// - Without Pool Medium (10KB): ~144 ns/op
-// - With Pool Medium (10KB): ~7 ns/op (20x faster!)
-// - Without Pool Large (100KB): ~4,862 ns/op
-// - With Pool Large (100KB): ~7 ns/op (694x faster!!!)
-
 // Pool is a generic object pool implementation.
 // Using sync.Pool for thread-safe object reuse.
 var pool = sync.Pool{
@@ -143,22 +135,113 @@ func RunPoolingDemo() {
 	fmt.Printf("Time saved: %v\n", timeWithoutPool-timeWithPool)
 	fmt.Println()
 
-	// Benchmark results
+	// Run micro-benchmarks for different buffer sizes
+	const benchIterations = 100000
+
+	// Small buffer (1KB) benchmark
+	smallWithoutStart := time.Now()
+	for range benchIterations {
+		buf := &Buffer{Data: make([]byte, 1024)}
+		buf.Write([]byte("hello"))
+		_ = buf.Length
+	}
+	smallWithoutTime := time.Since(smallWithoutStart)
+	smallWithoutNsOp := float64(smallWithoutTime.Nanoseconds()) / float64(benchIterations)
+
+	smallWithStart := time.Now()
+	for range benchIterations {
+		buf := pool.Get().(*Buffer)
+		buf.Write([]byte("hello"))
+		_ = buf.Length
+		buf.Reset()
+		pool.Put(buf)
+	}
+	smallWithTime := time.Since(smallWithStart)
+	smallWithNsOp := float64(smallWithTime.Nanoseconds()) / float64(benchIterations)
+
+	// Medium buffer (10KB) benchmark
+	mediumWithoutStart := time.Now()
+	for range benchIterations {
+		buf := &Buffer{Data: make([]byte, 10240)}
+		buf.Write([]byte("hello"))
+		_ = buf.Length
+	}
+	mediumWithoutTime := time.Since(mediumWithoutStart)
+	mediumWithoutNsOp := float64(mediumWithoutTime.Nanoseconds()) / float64(benchIterations)
+
+	mediumPool := sync.Pool{
+		New: func() any {
+			return &Buffer{Data: make([]byte, 10240)}
+		},
+	}
+	// Warm up medium pool
+	for range 10 {
+		buf := mediumPool.Get()
+		mediumPool.Put(buf)
+	}
+
+	mediumWithStart := time.Now()
+	for range benchIterations {
+		buf := mediumPool.Get().(*Buffer)
+		buf.Write([]byte("hello"))
+		_ = buf.Length
+		buf.Reset()
+		mediumPool.Put(buf)
+	}
+	mediumWithTime := time.Since(mediumWithStart)
+	mediumWithNsOp := float64(mediumWithTime.Nanoseconds()) / float64(benchIterations)
+
+	// Large buffer (100KB) benchmark
+	largeWithoutStart := time.Now()
+	for range benchIterations {
+		buf := &Buffer{Data: make([]byte, 102400)}
+		buf.Write([]byte("hello"))
+		_ = buf.Length
+	}
+	largeWithoutTime := time.Since(largeWithoutStart)
+	largeWithoutNsOp := float64(largeWithoutTime.Nanoseconds()) / float64(benchIterations)
+
+	largePool := sync.Pool{
+		New: func() any {
+			return &Buffer{Data: make([]byte, 102400)}
+		},
+	}
+	// Warm up large pool
+	for range 10 {
+		buf := largePool.Get()
+		largePool.Put(buf)
+	}
+
+	largeWithStart := time.Now()
+	for range benchIterations {
+		buf := largePool.Get().(*Buffer)
+		buf.Write([]byte("hello"))
+		_ = buf.Length
+		buf.Reset()
+		largePool.Put(buf)
+	}
+	largeWithTime := time.Since(largeWithStart)
+	largeWithNsOp := float64(largeWithTime.Nanoseconds()) / float64(benchIterations)
+
+	// Print benchmark results with actual measurements
 	fmt.Println("=== BENCHMARK RESULTS ===")
 	fmt.Println("Size Comparison (1KB buffer):")
-	fmt.Println("  - Without pool: ~10 ns/op")
-	fmt.Println("  - With pool: ~7 ns/op")
-	fmt.Println("  -> Speedup: 1.4x")
+	fmt.Printf("  - Without pool: ~%.0f ns/op\n", smallWithoutNsOp)
+	fmt.Printf("  - With pool: ~%.0f ns/op\n", smallWithNsOp)
+	smallSpeedup := smallWithoutNsOp / smallWithNsOp
+	fmt.Printf("  -> Speedup: %.1fx\n", smallSpeedup)
 	fmt.Println()
 	fmt.Println("Size Comparison (10KB buffer):")
-	fmt.Println("  - Without pool: ~144 ns/op")
-	fmt.Println("  - With pool: ~7 ns/op")
-	fmt.Println("  -> Speedup: 20x (massive improvement!)")
+	fmt.Printf("  - Without pool: ~%.0f ns/op\n", mediumWithoutNsOp)
+	fmt.Printf("  - With pool: ~%.0f ns/op\n", mediumWithNsOp)
+	mediumSpeedup := mediumWithoutNsOp / mediumWithNsOp
+	fmt.Printf("  -> Speedup: %.0fx (massive improvement!)\n", mediumSpeedup)
 	fmt.Println()
 	fmt.Println("Size Comparison (100KB buffer):")
-	fmt.Println("  - Without pool: ~4,862 ns/op")
-	fmt.Println("  - With pool: ~7 ns/op")
-	fmt.Println("  -> Speedup: 694x (AMAZING!)")
+	fmt.Printf("  - Without pool: ~%.0f ns/op\n", largeWithoutNsOp)
+	fmt.Printf("  - With pool: ~%.0f ns/op\n", largeWithNsOp)
+	largeSpeedup := largeWithoutNsOp / largeWithNsOp
+	fmt.Printf("  -> Speedup: %.0fx (AMAZING!)\n", largeSpeedup)
 	fmt.Println()
 	fmt.Println("Key Insight:")
 	fmt.Println("  - Pooling is MORE effective for larger objects")
